@@ -341,7 +341,7 @@ namespace var_stuff {
 	};
 	
 	template <class... Fs>
-	auto make_overload(Fs... fs)
+	auto make_overload(Fs... fs) -> overload<Fs...>
 	{
 	    return overload<Fs...>(fs...);
 	}
