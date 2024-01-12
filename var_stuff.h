@@ -4,6 +4,7 @@
 // DESCRIPTION + DECLARATIONS
 #define VAR // the whole goal of this file
 #define VISIT // it's the goal too!
+#define OVERLOAD // overload technique for convenient visitor creation
 //#define BIGGEST // trait to get the biggest type from parameter pack <-- note: casts void to struct WasVoid
 //#define INTEGER_SEQUENCE // alternative to std::integer_sequence of c++14
 //#define INVOKE // some traits to check invocables
@@ -317,6 +318,34 @@ namespace var_stuff {
 	template<typename ErrType, typename SuccessType>
 	struct result: var_stuff::variant<ErrType, SuccessType> {};
 	#endif // VAR_KINDS
+
+	#ifdef OVERLOAD
+	template <class... Fs>
+	struct overload;
+	
+	template <class F0, class... Frest>
+	struct overload<F0, Frest...> : F0, overload<Frest...>
+	{
+	    overload(F0 f0, Frest... rest) : F0(f0), overload<Frest...>(rest...) {}
+	
+	    using F0::operator();
+	    using overload<Frest...>::operator();
+	};
+	
+	template <class F0>
+	struct overload<F0> : F0
+	{
+	    overload(F0 f0) : F0(f0) {}
+	
+	    using F0::operator();
+	};
+	
+	template <class... Fs>
+	auto make_overload(Fs... fs)
+	{
+	    return overload<Fs...>(fs...);
+	}
+	#endif // OVERLOAD
 } // namespace var_stuff
 
 #endif // VAR_STUFF_H_
