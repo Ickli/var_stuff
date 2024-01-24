@@ -11,7 +11,10 @@ It can also perform checks at compile-time whether all contained types:
 
 By default variant is checking both.
 
-With checks turned off, you will get std::logic_error exception with some debug info of type dependent on your compiler.
+With checks turned off, you will get std::logic_error exception with some debug info of type dependent on your compiler if you:
+1. Try to copy variant currently containing non-copyable type;
+2. Try to move variant currently containing non-movable type.
+
 In release mode debug info is not included by default.
 If you still need it, define VAR_THROW_RUNTIME_DEBUG_INFO
 before including var_stuff.h
