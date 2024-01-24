@@ -11,7 +11,7 @@ It can also perform checks at compile-time whether all contained types:
 
 By default variant is checking both.
 
-With checks turned off, you will get std::logic_error exception with some debug info of type dependent on your compiler if you:
+With checks turned off, you will get std::logic_error exception with some debug type info, dependent on your compiler, if you:
 1. Try to copy variant currently containing non-copyable type;
 2. Try to move variant currently containing non-movable type.
 
@@ -25,10 +25,10 @@ Standard library for c++11
 
 ## Variant compile-time checks
 
-If you want to turn off checks for:
-1. Move operator= -> `var_stuff::mcheck(VALUE);`
-2. Copy operator= -> `var_stuff::ccheck(VALUE);`
-3. Both -> `var_stuff::nocheck(VALUE);
+If you want to have checks only for:
+1. Move operator= -> use `var_stuff::mcheck(VALUE);`
+2. Copy operator= -> use `var_stuff::ccheck(VALUE);`
+3. None -> use `var_stuff::nocheck(VALUE);
 
 ## Visit
 
