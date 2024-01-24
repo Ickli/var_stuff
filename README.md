@@ -16,7 +16,7 @@ With checks turned off, you will get std::logic_error exception with some debug 
 2. Try to move variant currently containing non-movable type.
 
 In release mode debug info is not included by default.
-If you still need it, define VAR_THROW_RUNTIME_DEBUG_INFO
+If you still need it, define `VAR_THROW_RUNTIME_DEBUG_INFO`
 before including var_stuff.h
 
 ## Dependencies
@@ -28,11 +28,13 @@ Standard library for c++11
 If you want to have checks only for:
 1. Move operator= -> use `var_stuff::mcheck(VALUE);`
 2. Copy operator= -> use `var_stuff::ccheck(VALUE);`
-3. None -> use `var_stuff::nocheck(VALUE);
+3. None -> use `var_stuff::nocheck(VALUE);`
 
 ## Visit
 
+All operator()'s must have the same return type.
 If you want to return something from var_stuff::visit, the return type must have either copy constructor or move constructor.
+You can also return void.
 
 ## Compilation
 
