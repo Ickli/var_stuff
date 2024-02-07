@@ -244,7 +244,8 @@ namespace var_stuff {
 	template<typename T>
 	struct CopyJump<T, true> {
 		static void jump(void* const dest, void const* const obj) {
-			*(T*)dest = *(T*)obj;
+			//*(T*)dest = *(T*)obj;
+			new(dest) T(*(T*)obj);
 		}
 	};
 
@@ -258,7 +259,8 @@ namespace var_stuff {
 	template<typename T>
 	struct MoveJump<T, true> {
 		static void jump(void* const dest, void* const obj) {
-			*(T*)dest = std::move(*(T*)obj);
+		//	*(T*)dest = std::move(*(T*)obj);
+			new(dest) T(std::move(*(T*)obj));
 		}
 	};
 
@@ -306,7 +308,7 @@ namespace var_stuff {
 	}
 	// only move check
 	template<typename ContainedType>
-	auto mcheck(ContainedType&& value) -> ParamToCheck<std::false_type, std::false_type, ContainedType&&> {
+	auto mcheck(ContainedType&& value) -> ParamToCheck<std::false_type, std::true_type, ContainedType&&> {
 		return ParamToCheck<std::false_type, std::true_type, ContainedType&&>{std::forward<ContainedType>(value)};
 	}
 	
@@ -322,8 +324,8 @@ namespace var_stuff {
 		using copyJump_t = decltype(&CopyJump<int>::jump);
 		using moveJump_t = decltype(&MoveJump<int>::jump);
 		static constexpr destroyJump_t m_destroyJumps[] = { DestroyJump<Ts>::jump... };
-		static constexpr copyJump_t m_copyJumps[] = { &CopyJump<Ts, std::is_copy_assignable<Ts>::value>::jump... };
-		static constexpr moveJump_t m_moveJumps[] = { &MoveJump<Ts, std::is_move_assignable<Ts>::value>::jump... };
+		static constexpr copyJump_t m_copyJumps[] = { &CopyJump<Ts, std::is_copy_constructible<Ts>::value>::jump... };
+		static constexpr moveJump_t m_moveJumps[] = { &MoveJump<Ts, std::is_move_constructible<Ts>::value>::jump... };
 		char m_content[sizeof(typename biggest<Ts...>::type)];
 		int m_tag;
 	
@@ -346,7 +348,7 @@ namespace var_stuff {
 			using rmrf_T = typename std::remove_reference<T>::type;
 			
 			//*(rmrf_T*)m_content = std::forward<T>(value);
-			*(rmrf_T*)m_content = static_cast<typename std::conditional<std::is_move_assignable<rmrf_T>::value, rmrf_T&&, const rmrf_T&&>::type>(
+			*(rmrf_T*)m_content = static_cast<typename std::conditional<std::is_move_constructible<rmrf_T>::value, rmrf_T&&, const rmrf_T&&>::type>(
 				value
 			);
 			return (m_tag = this->getIndex<rmrf_T>());
@@ -357,13 +359,6 @@ namespace var_stuff {
 		// METHOD GROUP: COPY CTOR
 		// always checking 
 		var(const var& other) {
-			/* We're using these variables instead of static_cast(EXPRESSION_THAT_EVALUATES_TO_FALSE)
-			   because it doesn't stop compilation... I still don't understand why. Something related to DR 2518;
-			   you can read about it here: 
-			   https://stackoverflow.com/questions/44059557/whats-the-right-way-to-call-static-assertfalse
-			*/
-			typename allOf_typed<std::is_copy_assignable, true, Ts...>::type check_for_copy{};
-			typename allOf_typed<std::is_move_assignable, true, Ts...>::type check_for_move{};
 			copy_(other);
 		}
 		
@@ -375,9 +370,14 @@ namespace var_stuff {
 		>
 		var(ParamToCheck<EnableCopyCheck_t, EnableMoveCheck_t, const var&> other) {
 			// TODO: check if these check-variables (but not the very checks!) are removed at -O3 level, at least.
-			typename evaluateIfTrue<EnableCopyCheck_t::value, allOf_typed<std::is_copy_assignable, true, Ts...>>::type 
+			/* We're using these variables instead of static_cast(EXPRESSION_THAT_EVALUATES_TO_FALSE)
+			   because it doesn't stop compilation... I still don't understand why. Something related to DR 2518;
+			   you can read about it here: 
+			   https://stackoverflow.com/questions/44059557/whats-the-right-way-to-call-static-assertfalse
+			*/
+			typename evaluateIfTrue<EnableCopyCheck_t::value, allOf_typed<std::is_copy_constructible, true, Ts...>>::type 
 			check_for_copy{};
-			typename evaluateIfTrue<EnableMoveCheck_t::value, allOf_typed<std::is_move_assignable, true, Ts...>>::type 
+			typename evaluateIfTrue<EnableMoveCheck_t::value, allOf_typed<std::is_move_constructible, true, Ts...>>::type 
 			check_for_move{};
 			
 			copy_(other.param);
@@ -386,8 +386,6 @@ namespace var_stuff {
 		// METHOD GROUP: MOVE CTOR
 		// always checking 
 		var(var&& other) {
-			typename allOf_typed<std::is_copy_assignable, true, Ts...>::type check_for_copy{};
-			typename allOf_typed<std::is_move_assignable, true, Ts...>::type check_for_move{};
 			move_(std::move(other));
 		}
 		
@@ -397,9 +395,9 @@ namespace var_stuff {
 			typename EnableMoveCheck_t  // otherwise, ambiguity between var(var&&) and this ctor would be
 		>
 		var(ParamToCheck<EnableCopyCheck_t, EnableMoveCheck_t, var&&> other) {
-			typename evaluateIfTrue<EnableCopyCheck_t::value, allOf_typed<std::is_copy_assignable, true, Ts...>>::type 
+			typename evaluateIfTrue<EnableCopyCheck_t::value, allOf_typed<std::is_copy_constructible, true, Ts...>>::type 
 			check_for_copy{};
-			typename evaluateIfTrue<EnableMoveCheck_t::value, allOf_typed<std::is_move_assignable, true, Ts...>>::type 
+			typename evaluateIfTrue<EnableMoveCheck_t::value, allOf_typed<std::is_move_constructible, true, Ts...>>::type 
 			check_for_move{};
 			
 			move_(std::move(other.param));
@@ -409,9 +407,6 @@ namespace var_stuff {
 		// always checking
 		template<typename T>
 		var(T&& value) {
-			typename allOf_typed<std::is_copy_assignable, true, Ts...>::type check_for_copy{};
-			typename allOf_typed<std::is_move_assignable, true, Ts...>::type check_for_move{};
-			
 			set_(std::forward<T>(value));
 		}
 		
@@ -422,22 +417,16 @@ namespace var_stuff {
 			typename EnableMoveCheck_t
 		>
 		var(ParamToCheck<EnableCopyCheck_t, EnableMoveCheck_t, T&&> value) {
-			typename evaluateIfTrue<EnableCopyCheck_t::value, allOf_typed<std::is_copy_assignable, true, Ts...>>::type 
+			typename evaluateIfTrue<EnableCopyCheck_t::value, allOf_typed<std::is_copy_constructible, true, Ts...>>::type 
 			check_for_copy{};
-			typename evaluateIfTrue<EnableMoveCheck_t::value, allOf_typed<std::is_move_assignable, true, Ts...>>::type 
+			typename evaluateIfTrue<EnableMoveCheck_t::value, allOf_typed<std::is_move_constructible, true, Ts...>>::type 
 			check_for_move{};
-			
-			
 			
 			set_(std::forward<T>(value.param));
 		}
 		
 		// METHOD GROUP: COPY ASSIGNMENT OPERATOR
-		// always checking 
 		var& operator=(const var& other) {
-			typename allOf_typed<std::is_copy_assignable, true, Ts...>::type check_for_copy{};
-			typename allOf_typed<std::is_move_assignable, true, Ts...>::type check_for_move{};
-			
 			destroyContent();
 			copy_(other);
 			return *this;
@@ -449,9 +438,9 @@ namespace var_stuff {
 			typename EnableMoveCheck_t
 		>
 		var& operator=(ParamToCheck<EnableCopyCheck_t, EnableMoveCheck_t, var&> other) {
-			typename evaluateIfTrue<EnableCopyCheck_t::value, allOf_typed<std::is_copy_assignable, true, Ts...>>::type 
+			typename evaluateIfTrue<EnableCopyCheck_t::value, allOf_typed<std::is_copy_constructible, true, Ts...>>::type 
 			check_for_copy{};
-			typename evaluateIfTrue<EnableMoveCheck_t::value, allOf_typed<std::is_move_assignable, true, Ts...>>::type 
+			typename evaluateIfTrue<EnableMoveCheck_t::value, allOf_typed<std::is_move_constructible, true, Ts...>>::type 
 			check_for_move{};
 			
 			destroyContent();
@@ -460,11 +449,7 @@ namespace var_stuff {
 		}
 		
 		// METHOD GROUP: MOVE ASSIGNMENT OPERATOR
-		// always checking 
 		var& operator=(var&& other) {
-			typename allOf_typed<std::is_copy_assignable, true, Ts...>::type check_for_copy{};
-			typename allOf_typed<std::is_move_assignable, true, Ts...>::type check_for_move{};
-			
 			destroyContent();
 			move_(std::move(other));
 			return *this;
@@ -476,9 +461,9 @@ namespace var_stuff {
 			typename EnableMoveCheck_t
 		>
 		var& operator=(ParamToCheck<EnableCopyCheck_t, EnableMoveCheck_t, var&&> other) {
-			typename evaluateIfTrue<EnableCopyCheck_t::value, allOf_typed<std::is_copy_assignable, true, Ts...>>::type 
+			typename evaluateIfTrue<EnableCopyCheck_t::value, allOf_typed<std::is_copy_constructible, true, Ts...>>::type 
 			check_for_copy{};
-			typename evaluateIfTrue<EnableMoveCheck_t::value, allOf_typed<std::is_move_assignable, true, Ts...>>::type 
+			typename evaluateIfTrue<EnableMoveCheck_t::value, allOf_typed<std::is_move_constructible, true, Ts...>>::type 
 			check_for_move{};
 			
 			destroyContent();
@@ -490,10 +475,9 @@ namespace var_stuff {
 		// always checking
 		template<typename T>
 		var& operator=(T&& value) {
-			typename allOf_typed<std::is_copy_assignable, true, Ts...>::type check_for_copy{};
-			typename allOf_typed<std::is_move_assignable, true, Ts...>::type check_for_move{};
-			
+			destroyContent();	
 			set_(std::forward<T>(value));
+			return *this;
 		}
 		
 		// conditional checking
@@ -503,12 +487,14 @@ namespace var_stuff {
 			typename EnableMoveCheck_t
 		>
 		var& operator=(ParamToCheck<EnableCopyCheck_t, EnableMoveCheck_t, T&&> value) {
-			typename evaluateIfTrue<EnableCopyCheck_t::value, allOf_typed<std::is_copy_assignable, true, Ts...>>::type 
+			typename evaluateIfTrue<EnableCopyCheck_t::value, allOf_typed<std::is_copy_constructible, true, Ts...>>::type 
 			check_for_copy{};
-			typename evaluateIfTrue<EnableMoveCheck_t::value, allOf_typed<std::is_move_assignable, true, Ts...>>::type 
+			typename evaluateIfTrue<EnableMoveCheck_t::value, allOf_typed<std::is_move_constructible, true, Ts...>>::type 
 			check_for_move{};
-			
+		
+			destroyContent();	
 			set_(std::forward<T>(value.param));
+			return *this;
 		}
 
 		~var() {

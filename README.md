@@ -5,11 +5,11 @@ It's delevoped mainly for educational purposes
 and ability to write something interesting in C++11.
 
 It can also perform checks at compile-time whether all contained types:
-1. Have not explicitly deleted move assignment operator;
-2. Have copy assignment operator;
+1. Have not explicitly deleted move constructor;
+2. Have copy constructor;
 3. Have both.
 
-By default variant is checking both.
+By default variant is checking none.
 
 With checks turned off, you will get std::logic_error exception with some debug type info, dependent on your compiler, if you:
 1. Try to copy variant currently containing non-copyable type;
@@ -26,8 +26,8 @@ Standard library for c++11
 ## Variant compile-time checks
 
 If you want to have checks only for:
-1. Move operator= -> use `var_stuff::mcheck(VALUE);`
-2. Copy operator= -> use `var_stuff::ccheck(VALUE);`
+1. Move constructor -> use `var_stuff::mcheck(VALUE);`
+2. Copy constructor -> use `var_stuff::ccheck(VALUE);`
 3. None -> use `var_stuff::nocheck(VALUE);`
 
 ## Visit
