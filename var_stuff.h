@@ -291,12 +291,12 @@ namespace var_stuff {
 		>{std::forward<ContainedType>(value)};
 	}
 	// wrapper for forwarding reference, disables copy and move compile-time checks
+	// reduntant for var because it does no checks by default. Just for the sake of explicitness
 	template<typename ContainedType>
 	auto nocheck(ContainedType&& value) -> ParamToCheck<std::false_type, std::false_type, ContainedType&&> {
 		return ParamToCheck<std::false_type, std::false_type, ContainedType&&>{std::forward<ContainedType>(value)};
 	}
 	// wrapper for forwarding reference, enables copy and move compile-time checks
-	// reduntant for var because it does checks by default. Just for the sake of explicitness
 	template<typename ContainedType>
 	auto check(ContainedType&& value) -> ParamToCheck<std::true_type, std::true_type, ContainedType&&> {
 		return ParamToCheck<std::true_type, std::true_type, ContainedType&&>{std::forward<ContainedType>(value)};
@@ -502,7 +502,7 @@ namespace var_stuff {
 		}
 
 		template<typename T>
-		auto getIndex() -> decltype(getIndex<T,Ts...>()) const {
+		static constexpr auto getIndex() -> decltype(getIndex<T,Ts...>()) const {
 			return ::var_stuff::getIndex<T, Ts...>();
 		}
 		
