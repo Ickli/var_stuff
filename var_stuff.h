@@ -346,11 +346,9 @@ namespace var_stuff {
 		template<typename T>
 		auto set_(T&& value) -> decltype(m_tag) {
 			using rmrf_T = typename std::remove_reference<T>::type;
-			
-			//*(rmrf_T*)m_content = std::forward<T>(value);
-			*(rmrf_T*)m_content = static_cast<typename std::conditional<std::is_move_constructible<rmrf_T>::value, rmrf_T&&, const rmrf_T&&>::type>(
-				value
-			);
+
+			new(m_content) rmrf_T(std::forward<T>(value));
+			//*(rmrf_T*)m_content = static_cast<typename std::conditional<std::is_move_constructible<rmrf_T>::value, rmrf_T&&, const rmrf_T&&>::type>(value);
 			return (m_tag = this->getIndex<rmrf_T>());
 		}
 
