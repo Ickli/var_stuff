@@ -532,6 +532,10 @@ namespace var_stuff {
 		
 		template<typename Visitor, typename U, typename... Us>
 		friend typename returnType<Visitor, U>::type visit(Visitor&& vis, var<U, Us...>& variant);
+		template<typename Visitor, typename U, typename... Us>
+		friend typename returnType<Visitor, U>::type visit_tag(Visitor&& vis, var<U, Us...>& variant, int tag);
+		template<typename Visitor, typename U, typename... Us>
+		friend typename returnType<Visitor, U*>::type visit_ptr(Visitor&& vis, var<U, Us...>& variant);
 	};
 
 
@@ -600,6 +604,20 @@ namespace var_stuff {
 		};
 	};
 	
+	template<typename Visitor, typename U, typename... Us>
+	struct visitJumps {
+		using Ret = typename returnType<Visitor, U>::type;
+		using jumpType = Ret(*)(void* const, void* const);
+		/* These are just jumps which knows to what pointer argument must be casted;
+		   for sure, you've seen this technique above the file already.
+		*/
+		static constexpr Ret(*jumps[])(void* const, void* const) = {
+			visitJump<Visitor, Ret, U>::jump, visitJump<Visitor, Ret, Us>::jump...
+		};
+	};
+	template<typename Visitor, typename U, typename... Us> constexpr typename visitJumps<Visitor, U, Us...>::jumpType
+		visitJumps<Visitor, U, Us...>::jumps[];
+
 	// visits any object that has operator() receiving Us as separate arguments.
 	// e.g. Visitor(Us[0]), Visitor(Us[1]), ...
 	template<typename Visitor, typename U, typename... Us>
@@ -617,29 +635,84 @@ namespace var_stuff {
 		*/
 		using RetMoveOrCopy = typename std::conditional<
 			rmrf_is_same<Ret, void>::value, 
-			void, 
+			void,
 			typename std::conditional<
 				std::is_move_constructible<Ret>::value, 
 				typename unvoid<Ret>::type&&, 
 				const typename unvoid<Ret>::type&&
 			>::type
 		>::type;
-		//foo(std::declval<RetMoveOrCopy>());
-		
-		/* These are just jumps which knows to what pointer argument must be casted;
-		   for sure, you've seen this technique above the file already.
-		*/
-		static constexpr Ret(*jumps[])(void* const, void* const) = {
-			visitJump<Visitor, Ret, U>::jump, visitJump<Visitor, Ret, Us>::jump...
-		};
-		
-		/* why static_cast? because if we cast to 'const T&&' it is guaranteed (sorta) to call copy constructor;
-		   if we cast to T&&, move constructor is called.
-		*/
+	
 		return static_cast<RetMoveOrCopy>(
-			jumps[variant.getTag()](&vis, variant.m_content)
+			visitJumps<Visitor, U, Us...>::jumps[variant.getTag()](&vis, variant.m_content)
 		);
 	}
+
+
+	template<typename Visitor, typename U, typename... Us>
+	typename returnType<Visitor, U>::type visit_tag(Visitor&& vis, var<U, Us...>& variant, int tag) {
+		using Ret = typename returnType<Visitor, U>::type;
+		using RetMoveOrCopy = typename std::conditional<
+			rmrf_is_same<Ret, void>::value, 
+			void,
+			typename std::conditional<
+				std::is_move_constructible<Ret>::value, 
+				typename unvoid<Ret>::type&&, 
+				const typename unvoid<Ret>::type&&
+			>::type
+		>::type;
+		return static_cast<RetMoveOrCopy>(
+			visitJumps<Visitor, U, Us...>::jumps[tag](&vis, variant.m_content)
+		);
+	}
+
+	template<typename Obj, typename Ret, typename Arg>
+	struct visitJump_ptr {
+		static Ret jump(void* const obj, void* const arg) {
+			// TODO: check if it's a pessimization
+			return static_cast<typename std::conditional<std::is_move_constructible<Ret>::value, Ret&&, const Ret&&>::type>(
+				(static_cast<Obj*>(obj))->operator()(static_cast<Arg>(arg))
+			);
+		}
+	};
+	
+	template<typename Obj, typename Arg>
+	struct visitJump_ptr<Obj, void, Arg> {
+		static void jump(void* const obj, void* const arg) {
+			return (static_cast<Obj*>(obj))->operator()(static_cast<Arg>(arg));
+		};
+	};
+	
+	template<typename Visitor, typename U, typename... Us>
+	struct visitJumps_ptr {
+		using Ret = typename returnType<Visitor, U>::type;
+		using jumpType = Ret(*)(void* const, void* const);
+
+		static constexpr Ret(*jumps[])(void* const, void* const) = {
+			visitJump_ptr<Visitor, Ret, U>::jump, visitJump_ptr<Visitor, Ret, Us>::jump...
+		};
+	};
+	template<typename Visitor, typename U, typename... Us> constexpr typename visitJumps_ptr<Visitor, U, Us...>::jumpType
+		visitJumps_ptr<Visitor, U, Us...>::jumps[];
+
+	template<typename Visitor, typename U, typename... Us>
+	typename returnType<Visitor, U*>::type visit_ptr(Visitor&& vis, var<U, Us...>& variant) {
+		using Ret = typename returnType<Visitor, U*>::type;
+		using RetMoveOrCopy = typename std::conditional<
+			rmrf_is_same<Ret, void>::value, 
+			void,
+			typename std::conditional<
+				std::is_move_constructible<Ret>::value, 
+				typename unvoid<Ret>::type&&, 
+				const typename unvoid<Ret>::type&&
+			>::type
+		>::type;
+
+		return static_cast<RetMoveOrCopy>(
+			visitJumps_ptr<Visitor, U*, Us*...>::jumps[variant.getTag()](&vis, variant.m_content)
+		);
+	}
+
 	#endif // VISIT
 	#ifdef VAR_KINDS
 	template<typename T>
